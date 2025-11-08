@@ -88,7 +88,7 @@ const App: React.FC = () => {
             if (!signal.aborted) {
                 setTripPlan(result);
             }
-        } catch (e) {
+        } catch (e: any) {
             if (e.name === 'AbortError') {
                 if (signal.reason === 'timeout') {
                     setError("La búsqueda está tardando demasiado. Por favor, inténtalo de nuevo más tarde.");
@@ -166,7 +166,7 @@ const App: React.FC = () => {
         try {
             const ideas = await getTripIdeas(ideasAbortControllerRef.current.signal);
             setTripIdeas(ideas);
-        } catch (e) {
+        } catch (e: any) {
             if (e.name !== 'AbortError') {
                 setIdeasError(e.message || "No se pudieron obtener las sugerencias.");
             }
