@@ -1,0 +1,5 @@
+{
+  "name": "Planificador de Viajes Teruel",
+  "description": "Una aplicación para planificar viajes en transporte público por la provincia de Teruel, España, incluyendo pueblos pequeños. Obtén información sobre rutas, horarios, precios y opciones de reserva para autobuses, trenes y taxis.",
+  "requestFramePermissions": []
+}
