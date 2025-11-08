@@ -22,11 +22,11 @@ export const saveRecentSearch = (search: RecentSearch): void => {
         const searches = getRecentSearches();
         
         // Create a unique key for the search to check for duplicates
-        const searchKey = `${search.origin}|${search.destination}|${search.isTaxiOnDemand}`;
+        const searchKey = `${search.origin}|${search.destination}|${search.isTaxiOnDemand}|${search.isUrgent}`;
 
         // Remove any existing duplicate search based on the key
         const filteredSearches = searches.filter(s => 
-            `${s.origin}|${s.destination}|${s.isTaxiOnDemand}` !== searchKey
+            `${s.origin}|${s.destination}|${s.isTaxiOnDemand}|${s.isUrgent}` !== searchKey
         );
 
         // Add the new search to the beginning of the list

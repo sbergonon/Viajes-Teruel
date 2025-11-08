@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RecentSearch, GeoPoint } from '../types';
 
 interface TripPlannerFormProps {
-    onSearch: (origin: string, destination: string, date: string, isOnDemand: boolean, passengers: number, isWheelchairAccessible: boolean, isTaxiOnDemand: boolean, findAccommodation: boolean, originCoords: GeoPoint | null) => void;
+    onSearch: (origin: string, destination: string, date: string, isOnDemand: boolean, passengers: number, isWheelchairAccessible: boolean, isTaxiOnDemand: boolean, findAccommodation: boolean, isUrgent: boolean, originCoords: GeoPoint | null) => void;
     isLoading: boolean;
     initialData?: RecentSearch;
     onCancelSearch: () => void;
@@ -26,6 +26,7 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
     
     const deriveIsTaxiOnly = (data?: RecentSearch): boolean => {
         if (!data) return false;
+        if (data.isUrgent) return true;
         if (data.isTaxiOnDemand) return true;
         if (data.isWheelchairAccessible) return true;
         if (data.origin && data.destination && data.origin === data.destination) return true;
@@ -39,6 +40,7 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
     const [isWheelchairAccessible, setIsWheelchairAccessible] = useState(initialData?.isWheelchairAccessible || false);
     const [isTaxiOnDemand, setIsTaxiOnDemand] = useState(initialData?.isTaxiOnDemand || false);
     const [findAccommodation, setFindAccommodation] = useState(initialData?.findAccommodation || false);
+    const [isUrgent, setIsUrgent] = useState(initialData?.isUrgent || false);
 
     useEffect(() => {
         if (locationError) {
@@ -60,6 +62,7 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
             setIsWheelchairAccessible(initialData.isWheelchairAccessible);
             setIsTaxiOnDemand(initialData.isTaxiOnDemand);
             setFindAccommodation(initialData.findAccommodation);
+            setIsUrgent(initialData.isUrgent);
         }
     }, [initialData]);
     
@@ -104,6 +107,7 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
         } else {
             setIsWheelchairAccessible(false); 
             setIsTaxiOnDemand(false);
+            setIsUrgent(false);
         }
     };
 
@@ -117,6 +121,18 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
         }
     };
 
+    const handleUrgentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        setIsUrgent(checked);
+        if (checked) {
+            setTravelDate(getTodaysDate());
+            setIsTaxiOnDemand(true);
+            setIsTaxiOnly(true);
+            setIsOnDemand(false);
+            setFindAccommodation(false);
+        }
+    };
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -125,20 +141,17 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
         const todayStr = now.toISOString().split('T')[0];
         const currentHour = now.getHours();
 
-        // Check if it's today and between 10 PM and 6 AM, and not already a taxi search
-        if (travelDate === todayStr && (currentHour >= 22 || currentHour < 6) && !isTaxiOnly && !isTaxiOnDemand) {
+        if (travelDate === todayStr && (currentHour >= 22 || currentHour < 6) && !isTaxiOnly && !isTaxiOnDemand && !isUrgent) {
             const confirmNightSearch = window.confirm(
                 "Es de noche. Para un viaje inmediato, las opciones más realistas son un taxi a demanda o buscar alojamiento. ¿Quieres que ajustemos la búsqueda por ti?"
             );
 
             if (confirmNightSearch) {
-                onSearch(origin, origin, travelDate, false, passengers, isWheelchairAccessible, true, true, originCoords);
+                onSearch(origin, origin, travelDate, false, passengers, isWheelchairAccessible, true, true, true, originCoords);
             }
-            // If user cancels, we do nothing and the form submission is aborted.
         } else {
-            // Proceed with normal search
             const finalDestination = isTaxiOnly ? origin : destination;
-            onSearch(origin, finalDestination, travelDate, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, originCoords);
+            onSearch(origin, finalDestination, travelDate, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, isUrgent, originCoords);
         }
     };
 
@@ -209,7 +222,7 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
                         min={getTodaysDate()}
                         className="block w-full rounded-md border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-teal-600 sm:text-sm sm:leading-6"
                         required
-                        disabled={isLoading}
+                        disabled={isLoading || isUrgent}
                     />
                 </div>
                 <div className="relative">
@@ -230,6 +243,30 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
             </div>
            
             <div className="space-y-4 pt-2">
+
+                <div className="relative flex items-start p-3 bg-amber-50 border-l-4 border-amber-400 rounded-md">
+                    <div className="flex h-6 items-center">
+                        <input
+                            id="is-urgent"
+                            name="is-urgent"
+                            type="checkbox"
+                            checked={isUrgent}
+                            onChange={handleUrgentChange}
+                            disabled={isLoading}
+                            className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-600"
+                        />
+                    </div>
+                    <div className="ml-3 text-sm leading-6">
+                        <label htmlFor="is-urgent" className="font-medium text-amber-900 flex items-center">
+                            <i className="fa-solid fa-bolt-lightning mr-2.5 text-amber-500 text-lg" aria-hidden="true"></i>
+                            <span>Viaje urgente / Último minuto</span>
+                        </label>
+                        <p id="is-urgent-description" className="text-amber-800">
+                            Busca las opciones más rápidas para ahora, como taxis a demanda. La fecha se fijará a hoy.
+                        </p>
+                    </div>
+                </div>
+
                 <div className="relative flex items-start">
                     <div className="flex h-6 items-center">
                         <input
@@ -238,15 +275,15 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
                             type="checkbox"
                             checked={isTaxiOnly}
                             onChange={handleTaxiOnlyChange}
-                            disabled={isLoading || isTaxiOnDemand}
+                            disabled={isLoading || isTaxiOnDemand || isUrgent}
                             className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-600 disabled:bg-gray-200 disabled:cursor-not-allowed"
                         />
                     </div>
                     <div className="ml-3 text-sm leading-6">
-                        <label htmlFor="taxi-only" className={`font-medium transition-colors ${isTaxiOnDemand ? 'text-gray-400' : 'text-gray-900'}`}>
+                        <label htmlFor="taxi-only" className={`font-medium transition-colors ${(isTaxiOnDemand || isUrgent) ? 'text-gray-400' : 'text-gray-900'}`}>
                             Buscar solo taxi
                         </label>
-                        <p id="taxi-only-description" className={`transition-colors ${isTaxiOnDemand ? 'text-gray-400' : 'text-gray-500'}`}>
+                        <p id="taxi-only-description" className={`transition-colors ${(isTaxiOnDemand || isUrgent) ? 'text-gray-400' : 'text-gray-500'}`}>
                             Marca esta opción para encontrar taxis en una localidad específica.
                         </p>
                     </div>
@@ -260,17 +297,17 @@ export const TripPlannerForm: React.FC<TripPlannerFormProps> = ({ onSearch, isLo
                             type="checkbox"
                             checked={isTaxiOnDemand}
                             onChange={handleTaxiOnDemandChange}
-                            disabled={isLoading}
-                            className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-600"
+                            disabled={isLoading || isUrgent}
+                            className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-600 disabled:bg-gray-200 disabled:cursor-not-allowed"
                         />
                     </div>
                     <div className="ml-3 text-sm leading-6">
-                        <label htmlFor="taxi-on-demand" className="font-medium text-gray-900 flex items-center">
+                        <label htmlFor="taxi-on-demand" className={`font-medium transition-colors ${isUrgent ? 'text-gray-400' : 'text-gray-900'}`}>
                             <i className="fa-solid fa-phone-volume mr-2.5 text-orange-500 text-lg" aria-hidden="true"></i>
                             <span>Buscar Taxis a Demanda</span>
                         </label>
-                        <p id="taxi-on-demand-description" className="text-gray-500">
-                            Encuentra taxis que operan con reserva telefónica. Esto activará el modo "Buscar solo taxi" y desactivará otras opciones de ruta.
+                        <p id="taxi-on-demand-description" className={`transition-colors ${isUrgent ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Encuentra taxis que operan con reserva telefónica.
                         </p>
                     </div>
                 </div>

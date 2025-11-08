@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
@@ -30,6 +30,17 @@ const accommodationSchema = {
         notes: { type: Type.STRING, description: "Notas adicionales sobre el alojamiento." }
     },
     required: ['name', 'type', 'contactDetails']
+};
+
+const intermediateStopSchema = {
+    type: Type.OBJECT,
+    description: "Una parada intermedia en un trayecto.",
+    properties: {
+        name: { type: Type.STRING, description: "Nombre de la parada." },
+        arrivalTime: { type: Type.STRING, description: "Hora de llegada a la parada." },
+        departureTime: { type: Type.STRING, description: "Hora de salida de la parada (si es diferente a la de llegada)." }
+    },
+    required: ['name', 'arrivalTime']
 };
 
 const responseSchema = {
@@ -72,8 +83,15 @@ const responseSchema = {
                                 },
                                 originCoords: geoPointSchema,
                                 destinationCoords: geoPointSchema,
+                                estimatedTravelTime: { type: Type.STRING, description: "Tiempo estimado de viaje puro, sin contar paradas. Ej: '1h 5m'" },
+                                approximateWaitingTime: { type: Type.STRING, description: "Tiempo de espera aproximado antes de este paso. Para el primer paso es '0m'. Para los siguientes, es el tiempo entre la llegada del paso anterior y la salida de este. Ej: '25m'" },
+                                intermediateStops: {
+                                    type: Type.ARRAY,
+                                    description: "Lista de paradas intermedias importantes durante este paso.",
+                                    items: intermediateStopSchema
+                                }
                             },
-                            required: ['transportType', 'origin', 'destination', 'departureTime', 'arrivalTime', 'duration', 'price', 'bookingInfo', 'originCoords', 'destinationCoords']
+                            required: ['transportType', 'origin', 'destination', 'departureTime', 'arrivalTime', 'duration', 'price', 'bookingInfo', 'originCoords', 'destinationCoords', 'estimatedTravelTime', 'approximateWaitingTime']
                         },
                     },
                     accommodationSuggestions: {
@@ -134,6 +152,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
                 - El número de teléfono es la información más importante.
                 - Si hay varios taxistas, crea un paso de tipo "Taxi" para cada uno de ellos en la misma ruta.
                 - Para cada taxista, proporciona las coordenadas de la localidad en 'originCoords' y 'destinationCoords'.
+                - Para cada paso, establece 'estimatedTravelTime' igual a 'duration' y 'approximateWaitingTime' en "0m".
                 - La respuesta DEBE seguir el esquema JSON proporcionado. Crea una única ruta con uno o más pasos.
                 - Para cada paso (cada taxista), el origen y destino puede ser el nombre de la localidad. El precio puede ser 0 ya que es solo informativo. Lo más importante es la información de contacto en 'bookingInfo'.
             `
@@ -149,6 +168,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
                 Es crucial que **no** asumas que todos los viajes deben pasar por Teruel ciudad a menos que sea el origen, el destino o un transbordo absolutamente necesario. Prioriza siempre las rutas directas o más lógicas entre las localidades, incluso si utilizan líneas de autobús comarcales que no conectan con la capital. Por ejemplo, un viaje entre Villarluengo y Cantavieja debería usar el bus local que las conecta directamente, sin pasar por Teruel.
 
                 Para cada paso del viaje, DEBES proporcionar las coordenadas geográficas (latitud y longitud) tanto para el origen ('originCoords') como para el destino ('destinationCoords'). Esta información es fundamental.
+                
+                Para los trayectos en bus y tren, si hay paradas intermedias relevantes, lista hasta 5 de las más importantes en 'intermediateStops', cada una con su nombre, hora de llegada y hora de salida si es diferente.
 
                 **IMPORTANTE: INCLUYE EL TREN.** Además de autobuses y taxis, considera activamente la línea de tren regional que cruza la provincia (línea Zaragoza-Teruel-Valencia). Esta es una opción de transporte clave entre localidades mayores como Teruel ciudad, Cella, y otras paradas relevantes. Incluye el tren como parte de las rutas siempre que sea una alternativa lógica. La compañía es Renfe.
 
@@ -160,6 +181,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
                 Sé muy específico y práctico.
                 Si no hay rutas directas, crea rutas con transbordos. Incluye si es necesario caminar un poco entre paradas.
                 La información debe ser útil para un turista que no conoce la zona.
+
+                Para cada paso del viaje, además de la duración total ('duration'), calcula y proporciona:
+                1. 'estimatedTravelTime': El tiempo que el vehículo está en movimiento, excluyendo paradas intermedias.
+                2. 'approximateWaitingTime': El tiempo de espera en la parada/estación antes de que comience este paso. Para el primer paso, este valor debe ser "0m". Para los demás, es la diferencia entre la hora de llegada del paso anterior y la hora de salida de este paso.
             `;
         
         const systemInstruction = "Eres un experto planificador de viajes especializado en el transporte público de la provincia de Teruel, España. Tu conocimiento abarca horarios de autobuses (incluyendo servicios a demanda y días específicos de operación como laborables, sábados o festivos), líneas de tren, y contactos de taxis locales en pueblos pequeños. Eres capaz de generar rutas lógicas, encontrar coordenadas precisas y proporcionar información práctica y fiable. Siempre devuelves la información en el formato JSON especificado.";

@@ -25,6 +25,12 @@ export interface GeoPoint {
     lng: number;
 }
 
+export interface IntermediateStop {
+    name: string;
+    arrivalTime: string;
+    departureTime?: string;
+}
+
 export interface Step {
     transportType: TransportType;
     origin: string;
@@ -38,6 +44,9 @@ export interface Step {
     bookingInfo: BookingInfo;
     originCoords: GeoPoint;
     destinationCoords: GeoPoint;
+    estimatedTravelTime?: string;
+    approximateWaitingTime?: string;
+    intermediateStops?: IntermediateStop[];
 }
 
 export interface Accommodation {
@@ -76,6 +85,7 @@ export interface RecentSearch {
     isWheelchairAccessible: boolean;
     isTaxiOnDemand: boolean;
     findAccommodation: boolean;
+    isUrgent: boolean;
 }
 
 export interface Subscription {

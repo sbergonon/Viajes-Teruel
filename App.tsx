@@ -50,7 +50,7 @@ const App: React.FC = () => {
     
     const isTaxiOnlySearch = (origin: string, destination: string) => origin.trim().toLowerCase() === destination.trim().toLowerCase() && origin.trim() !== '';
 
-    const handleSearch = useCallback(async (origin: string, destination: string, date: string, isOnDemand: boolean, passengers: number, isWheelchairAccessible: boolean, isTaxiOnDemand: boolean, findAccommodation: boolean, originCoords: GeoPoint | null) => {
+    const handleSearch = useCallback(async (origin: string, destination: string, date: string, isOnDemand: boolean, passengers: number, isWheelchairAccessible: boolean, isTaxiOnDemand: boolean, findAccommodation: boolean, isUrgent: boolean, originCoords: GeoPoint | null) => {
         if (origin === 'Mi ubicación actual' && !originCoords) {
             setError("Por favor, usa el botón de geolocalización de nuevo para confirmar tu ubicación antes de realizar esta búsqueda.");
             return;
@@ -68,7 +68,7 @@ const App: React.FC = () => {
         const signal = controller.signal;
 
         const searchToSave: RecentSearch = {
-            origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation
+            origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, isUrgent
         };
         saveRecentSearch(searchToSave);
         setRecentSearches(getRecentSearches());
@@ -84,7 +84,7 @@ const App: React.FC = () => {
         }, SEARCH_TIMEOUT);
 
         try {
-            const result = await planTrip(origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, originCoords, signal);
+            const result = await planTrip(origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, isUrgent, originCoords, signal);
             if (!signal.aborted) {
                 setTripPlan(result);
             }
@@ -115,16 +115,18 @@ const App: React.FC = () => {
     }, []);
     
     const handleClearSearch = useCallback(() => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort('clear');
-            abortControllerRef.current = null;
+        if (window.confirm('¿Estás seguro de que quieres limpiar todos los resultados de la búsqueda?')) {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort('clear');
+                abortControllerRef.current = null;
+            }
+            setTripPlan(null);
+            setError(null);
+            setHasSearched(false);
+            setInitialFormData(undefined);
+            setIsLoading(false);
+            setSearchId(id => id + 1);
         }
-        setTripPlan(null);
-        setError(null);
-        setHasSearched(false);
-        setInitialFormData(undefined);
-        setIsLoading(false);
-        setSearchId(id => id + 1);
     }, []);
 
     const handleCancelSearch = useCallback(() => {
@@ -184,6 +186,7 @@ const App: React.FC = () => {
             isWheelchairAccessible: false,
             isTaxiOnDemand: false,
             findAccommodation: false,
+            isUrgent: false,
         };
         setInitialFormData(searchData);
         setSearchId(id => id + 1);
@@ -215,6 +218,7 @@ const App: React.FC = () => {
                 initialFormData.isWheelchairAccessible,
                 initialFormData.isTaxiOnDemand,
                 initialFormData.findAccommodation,
+                initialFormData.isUrgent,
                 null // Recent searches don't have coords, handleSearch will catch this.
             );
         }

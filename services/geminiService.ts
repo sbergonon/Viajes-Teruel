@@ -46,6 +46,7 @@ export const planTrip = async (
     isWheelchairAccessible: boolean, 
     isTaxiOnDemand: boolean, 
     findAccommodation: boolean,
+    isUrgent: boolean,
     originCoords: GeoPoint | null,
     signal?: AbortSignal // Se añade el AbortSignal opcional
 ): Promise<TripPlan> => {
@@ -55,7 +56,7 @@ export const planTrip = async (
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, originCoords }),
+            body: JSON.stringify({ origin, destination, date, isOnDemand, passengers, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, isUrgent, originCoords }),
             signal, // Se pasa el signal a la petición fetch
         });
 

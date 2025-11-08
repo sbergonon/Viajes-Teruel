@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -28,6 +29,17 @@ const accommodationSchema = {
         notes: { type: Type.STRING, description: "Notas adicionales sobre el alojamiento." }
     },
     required: ['name', 'type', 'contactDetails']
+};
+
+const intermediateStopSchema = {
+    type: Type.OBJECT,
+    description: "Una parada intermedia en un trayecto.",
+    properties: {
+        name: { type: Type.STRING, description: "Nombre de la parada." },
+        arrivalTime: { type: Type.STRING, description: "Hora de llegada a la parada." },
+        departureTime: { type: Type.STRING, description: "Hora de salida de la parada (si es diferente a la de llegada)." }
+    },
+    required: ['name', 'arrivalTime']
 };
 
 const responseSchema = {
@@ -70,8 +82,15 @@ const responseSchema = {
                                 },
                                 originCoords: geoPointSchema,
                                 destinationCoords: geoPointSchema,
+                                estimatedTravelTime: { type: Type.STRING, description: "Tiempo estimado de viaje puro, sin contar paradas. Ej: '1h 5m'" },
+                                approximateWaitingTime: { type: Type.STRING, description: "Tiempo de espera aproximado antes de este paso. Para el primer paso es '0m'. Para los siguientes, es el tiempo entre la llegada del paso anterior y la salida de este. Ej: '25m'" },
+                                intermediateStops: {
+                                    type: Type.ARRAY,
+                                    description: "Lista de paradas intermedias importantes durante este paso.",
+                                    items: intermediateStopSchema
+                                }
                             },
-                            required: ['transportType', 'origin', 'destination', 'departureTime', 'arrivalTime', 'duration', 'price', 'bookingInfo', 'originCoords', 'destinationCoords']
+                            required: ['transportType', 'origin', 'destination', 'departureTime', 'arrivalTime', 'duration', 'price', 'bookingInfo', 'originCoords', 'destinationCoords', 'estimatedTravelTime', 'approximateWaitingTime']
                         },
                     },
                     accommodationSuggestions: {
@@ -90,7 +109,7 @@ const responseSchema = {
 const FUNCTION_TIMEOUT = 25000;
 
 export const planTripHandler = async (body: any) => {
-    const { origin, destination, date, passengers, isOnDemand, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, originCoords } = body;
+    const { origin, destination, date, passengers, isOnDemand, isWheelchairAccessible, isTaxiOnDemand, findAccommodation, isUrgent, originCoords } = body;
 
     if (!origin || !destination || !date || !passengers) {
         throw new Error('Missing required fields');
@@ -98,6 +117,12 @@ export const planTripHandler = async (body: any) => {
     
     const isTaxiOnlySearch = origin.trim().toLowerCase() === destination.trim().toLowerCase() || origin === 'Mi ubicación actual' && isTaxiOnDemand;
 
+    const urgentInstructions = isUrgent
+        ? `¡VIAJE URGENTE! El usuario necesita viajar AHORA MISMO, en el momento de la consulta. Prioriza las opciones de transporte con disponibilidad inmediata. Esto significa:
+        1. Taxis a demanda: Son la máxima prioridad. Busca todos los taxis disponibles en la zona de origen que se puedan llamar por teléfono para un servicio inmediato.
+        2. Autobuses de alta frecuencia o que estén a punto de salir: Busca si hay algún autobús cuya salida sea inminente (en la próxima hora) desde la parada más cercana.
+        3. Ignora completamente cualquier servicio que requiera reserva con 24 horas de antelación o más.`
+        : "";
     const onDemandInstructions = isOnDemand ? `El usuario ha solicitado priorizar el transporte a demanda (autobuses con reserva telefónica). Incluye estas opciones si son viables.` : "";
     const accessibilityInstructions = isWheelchairAccessible ? `El taxi DEBE ser accesible para silla de ruedas.` : "";
     const taxiOnDemandInstructions = isTaxiOnDemand ? `El usuario busca específicamente taxis que funcionen bajo demanda, es decir, que se reservan por teléfono. Prioriza este tipo de servicio.` : "";
@@ -113,6 +138,7 @@ export const planTripHandler = async (body: any) => {
         ? `
             Busca información de contacto de todos los servicios de taxi que operen en la localidad ${originInstruction}, en la provincia de Teruel, España.
             El usuario busca un taxi para ${passengers} pasajero(s).
+            ${urgentInstructions}
             ${accessibilityInstructions}
             ${taxiOnDemandInstructions}
             Tu objetivo es proporcionar una lista útil de contactos para alguien que necesita un taxi en esa zona.
@@ -121,12 +147,14 @@ export const planTripHandler = async (body: any) => {
             - El número de teléfono es la información más importante.
             - Si hay varios taxistas, crea un paso de tipo "Taxi" para cada uno de ellos en la misma ruta.
             - Para cada taxista, proporciona las coordenadas de la localidad en 'originCoords' y 'destinationCoords'.
+            - Para cada paso, establece 'estimatedTravelTime' igual a 'duration' y 'approximateWaitingTime' en "0m".
             - La respuesta DEBE seguir el esquema JSON proporcionado. Crea una única ruta con uno o más pasos.
             - Para cada paso (cada taxista), el origen y destino puede ser el nombre de la localidad. El precio puede ser 0 ya que es solo informativo. Lo más importante es la información de contacto en 'bookingInfo'.
         `
         : `
             Planifica un viaje en transporte público ${originInstruction} hasta "${destination}" dentro de la provincia de Teruel, España. El viaje es para ${passengers} pasajero(s) y la fecha del viaje es ${date}.
 
+            ${urgentInstructions}
             ${onDemandInstructions}
             ${generalTaxiInstructions}
             ${accommodationInstructions}
@@ -136,6 +164,8 @@ export const planTripHandler = async (body: any) => {
             Es crucial que **no** asumas que todos los viajes deben pasar por Teruel ciudad a menos que sea el origen, el destino o un transbordo absolutamente necesario. Prioriza siempre las rutas directas o más lógicas entre las localidades, incluso si utilizan líneas de autobús comarcales que no conectan con la capital. Por ejemplo, un viaje entre Villarluengo y Cantavieja debería usar el bus local que las conecta directamente, sin pasar por Teruel.
 
             Para cada paso del viaje, DEBES proporcionar las coordenadas geográficas (latitud y longitud) tanto para el origen ('originCoords') como para el destino ('destinationCoords'). Esta información es fundamental.
+            
+            Para los trayectos en bus y tren, si hay paradas intermedias relevantes, lista hasta 5 de las más importantes en 'intermediateStops', cada una con su nombre, hora de llegada y hora de salida si es diferente.
 
             **IMPORTANTE: INCLUYE EL TREN.** Además de autobuses y taxis, considera activamente la línea de tren regional que cruza la provincia (línea Zaragoza-Teruel-Valencia). Esta es una opción de transporte clave entre localidades mayores como Teruel ciudad, Cella, y otras paradas relevantes. Incluye el tren como parte de las rutas siempre que sea una alternativa lógica. La compañía es Renfe.
 
@@ -147,6 +177,10 @@ export const planTripHandler = async (body: any) => {
             Sé muy específico y práctico.
             Si no hay rutas directas, crea rutas con transbordos. Incluye si es necesario caminar un poco entre paradas.
             La información debe ser útil para un turista que no conoce la zona.
+
+            Para cada paso del viaje, además de la duración total ('duration'), calcula y proporciona:
+            1. 'estimatedTravelTime': El tiempo que el vehículo está en movimiento, excluyendo paradas intermedias.
+            2. 'approximateWaitingTime': El tiempo de espera en la parada/estación antes de que comience este paso. Para el primer paso, este valor debe ser "0m". Para los demás, es la diferencia entre la hora de llegada del paso anterior y la hora de salida de este paso.
         `;
     
     const systemInstruction = "Eres un experto planificador de viajes especializado en el transporte público de la provincia de Teruel, España. Tu conocimiento abarca horarios de autobuses (incluyendo servicios a demanda y días específicos de operación como laborables, sábados o festivos), líneas de tren, y contactos de taxis locales en pueblos pequeños. Eres capaz de generar rutas lógicas, encontrar coordenadas precisas y proporcionar información práctica y fiable. Siempre devuelves la información en el formato JSON especificado.";

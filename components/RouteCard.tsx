@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Route, Step, TransportType, BookingType, Accommodation } from '../types';
 
@@ -57,20 +58,35 @@ const PhoneNumber: React.FC<{ phone: string }> = ({ phone }) => {
     );
 };
 
+const TransportStepsSummary: React.FC<{ steps: Step[] }> = ({ steps }) => (
+    <div className="flex items-center space-x-1">
+        {steps.map((step, index) => (
+            <React.Fragment key={index}>
+                <div 
+                    className={`flex h-6 w-6 items-center justify-center rounded-full ${transportColors[step.transportType]}`}
+                    title={step.transportType}
+                    aria-label={`Paso de transporte: ${step.transportType}`}
+                >
+                    <i className={`${transportIcons[step.transportType]} text-xs`} />
+                </div>
+                {index < steps.length - 1 && <i className="fa-solid fa-chevron-right text-gray-300 text-xs" />}
+            </React.Fragment>
+        ))}
+    </div>
+);
 
-const AccommodationDetails: React.FC<{ accommodations: Accommodation[], destination: string }> = ({ accommodations, destination }) => (
-    <div className="p-4 border-t border-gray-200 bg-blue-50">
-        <h4 className="font-bold text-gray-800 flex items-center text-base">
-            <i className="fa-solid fa-bed mr-2.5 text-blue-600" aria-hidden="true"></i>
-            Alojamiento sugerido en {destination}
-        </h4>
-        <p className="text-xs text-gray-600 mt-1 mb-3">No se encontró ruta de vuelta el mismo día. Aquí tienes algunas opciones para pasar la noche:</p>
-        <ul className="space-y-2">
+const AccommodationDetails: React.FC<{ accommodations: Accommodation[] }> = ({ accommodations }) => (
+    <div className="p-4 bg-gray-50 border-t border-gray-200">
+        <p className="text-sm text-gray-600 mb-3">Como no hay una ruta de vuelta clara para el mismo día, aquí tienes algunas opciones de alojamiento:</p>
+        <ul className="space-y-3">
             {accommodations.map((acc, index) => (
-                <li key={index} className="text-sm bg-white p-2.5 rounded-lg shadow-sm border border-gray-200">
-                    <p className="font-semibold">{acc.name} <span className="text-xs font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1">{acc.type}</span></p>
-                    <p className="text-xs text-teal-600 font-medium mt-1 truncate">{acc.contactDetails}</p>
-                    {acc.notes && <p className="text-xs italic text-gray-500 mt-1.5">{acc.notes}</p>}
+                <li key={index} className="text-sm bg-white p-3 rounded-lg border border-gray-200">
+                    <p className="font-semibold text-gray-800">{acc.name} <span className="text-xs font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full ml-1">{acc.type}</span></p>
+                    <p className="text-sm text-teal-600 font-medium mt-1 truncate flex items-center gap-2">
+                        <i className="fa-solid fa-phone-volume text-xs text-gray-400" aria-hidden="true"></i>
+                        <span>{acc.contactDetails}</span>
+                    </p>
+                    {acc.notes && <p className="text-xs italic text-gray-500 mt-2 pt-2 border-t border-gray-100">{acc.notes}</p>}
                 </li>
             ))}
         </ul>
@@ -79,10 +95,12 @@ const AccommodationDetails: React.FC<{ accommodations: Accommodation[], destinat
 
 
 const StepDetails: React.FC<{ step: Step }> = ({ step }) => {
+    const [areStopsVisible, setAreStopsVisible] = useState(false);
+    const hasIntermediateStops = step.intermediateStops && step.intermediateStops.length > 0;
+
     const bookingAction = () => {
         switch(step.bookingInfo.type) {
             case BookingType.WEB:
-                // Ensure URL has a protocol
                 const url = step.bookingInfo.details.startsWith('http') ? step.bookingInfo.details : `https://${step.bookingInfo.details}`;
                 return <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-teal-600 hover:text-teal-500 truncate">{step.bookingInfo.details}</a>;
             case BookingType.PHONE:
@@ -124,6 +142,59 @@ const StepDetails: React.FC<{ step: Step }> = ({ step }) => {
                 <div className="flex text-xs text-gray-600 mt-1">
                     <p><i className="fa-regular fa-clock mr-1.5" aria-hidden="true"></i> {step.departureTime} - {step.arrivalTime}</p>
                 </div>
+                <div className="flex items-center text-xs text-gray-500 mt-2 space-x-4">
+                    {step.approximateWaitingTime && (
+                        <span title="Tiempo de espera estimado" className="inline-flex items-center">
+                            <i className="fa-regular fa-hourglass-half mr-1.5 text-orange-500" aria-hidden="true"></i>
+                            Espera:&nbsp;
+                            <span className={`font-medium ${
+                                parseInt(step.approximateWaitingTime, 10) > 15
+                                ? 'bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md'
+                                : 'text-gray-700'
+                            }`}>
+                                {step.approximateWaitingTime}
+                            </span>
+                        </span>
+                    )}
+                    {step.estimatedTravelTime && (
+                        <span title="Tiempo de viaje en movimiento">
+                            <i className="fa-solid fa-stopwatch mr-1.5 text-sky-500" aria-hidden="true"></i>
+                            Viaje: <span className="font-medium text-gray-700">{step.estimatedTravelTime}</span>
+                        </span>
+                    )}
+                </div>
+
+                {hasIntermediateStops && (
+                    <div className="mt-3">
+                        <button
+                            onClick={() => setAreStopsVisible(prev => !prev)}
+                            className="w-full flex justify-between items-center text-left text-xs font-medium text-gray-600 hover:text-gray-900 py-1"
+                            aria-expanded={areStopsVisible}
+                            aria-controls={`stops-${step.origin}-${step.destination}`}
+                        >
+                            <span className="flex items-center">
+                                <i className="fa-solid fa-list-ol mr-2 text-gray-400" aria-hidden="true"></i>
+                                Ver {step.intermediateStops.length} paradas intermedias
+                            </span>
+                            <i className={`fa-solid fa-chevron-down transition-transform ${areStopsVisible ? 'rotate-180' : ''}`} aria-hidden="true"></i>
+                        </button>
+                        {areStopsVisible && (
+                            <ul id={`stops-${step.origin}-${step.destination}`} className="mt-2 pl-5 border-l-2 border-dotted border-gray-300 space-y-3 py-2">
+                                {step.intermediateStops.map((stop, index) => (
+                                    <li key={index} className="relative">
+                                        <div className="absolute -left-[1.1rem] top-1 h-3 w-3 bg-gray-300 rounded-full border-2 border-white" aria-hidden="true"></div>
+                                        <p className="text-xs font-medium text-gray-800">{stop.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                            Llegada: {stop.arrivalTime}
+                                            {stop.departureTime && ` | Salida: ${stop.departureTime}`}
+                                        </p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                )}
+                 
                  <div className="mt-3 bg-gray-50 p-3 rounded-md text-sm">
                     <div className="flex items-start space-x-3">
                         <i className={`${bookingIcons[step.bookingInfo.type]} mt-1 text-teal-600 w-4 text-center`} aria-hidden="true"></i>
@@ -142,42 +213,29 @@ const StepDetails: React.FC<{ step: Step }> = ({ step }) => {
                             </div>
                         </div>
                     )}
-                    {([BookingType.WEB, BookingType.PHONE].includes(step.bookingInfo.type)) && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
-                            {step.bookingInfo.type === BookingType.WEB && (
-                                <a 
-                                    href={step.bookingInfo.details.startsWith('http') ? step.bookingInfo.details : `https://${step.bookingInfo.details}`}
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-200 transition-colors"
-                                >
-                                    <i className="fa-solid fa-globe" aria-hidden="true"></i>
-                                    Reservar en la web
-                                </a>
-                            )}
-                            {step.bookingInfo.type === BookingType.PHONE && (
-                                <a 
-                                    href={`tel:${step.bookingInfo.details.replace(/\s/g, '')}`} 
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 hover:bg-green-200 transition-colors"
-                                >
-                                    <i className="fa-solid fa-phone" aria-hidden="true"></i>
-                                    Llamar para reservar
-                                </a>
-                            )}
-                        </div>
-                    )}
-                    {step.transportType === TransportType.TAXI && (
-                         <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
-                             {step.bookingInfo.type === BookingType.PHONE && (
-                                <a 
-                                    href={`tel:${step.bookingInfo.details.replace(/\s/g, '')}`} 
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 hover:bg-green-200 transition-colors"
-                                >
-                                    <i className="fa-solid fa-phone" aria-hidden="true"></i>
-                                    Llamar ahora
-                                </a>
-                             )}
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
+                        {step.bookingInfo.type === BookingType.WEB && (
                             <a 
+                                href={step.bookingInfo.details.startsWith('http') ? step.bookingInfo.details : `https://${step.bookingInfo.details}`}
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-200 transition-colors"
+                            >
+                                <i className="fa-solid fa-globe" aria-hidden="true"></i>
+                                Reservar en la web
+                            </a>
+                        )}
+                        {step.bookingInfo.type === BookingType.PHONE && (
+                            <a 
+                                href={`tel:${step.bookingInfo.details.replace(/\s/g, '')}`} 
+                                className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 hover:bg-green-200 transition-colors"
+                            >
+                                <i className="fa-solid fa-phone" aria-hidden="true"></i>
+                                Llamar para reservar
+                            </a>
+                        )}
+                        {step.transportType === TransportType.TAXI && (
+                             <a 
                                 href={mapUrl} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
@@ -186,8 +244,8 @@ const StepDetails: React.FC<{ step: Step }> = ({ step }) => {
                                 <i className="fa-solid fa-map-location-dot" aria-hidden="true"></i>
                                 Ver en mapa
                             </a>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -198,9 +256,10 @@ const StepDetails: React.FC<{ step: Step }> = ({ step }) => {
 export const RouteCard: React.FC<RouteCardProps> = ({ route, isSelected, onSelect, isSubscribed, onToggleSubscription }) => {
     const hasAccommodation = route.accommodationSuggestions && route.accommodationSuggestions.length > 0;
     const [isCopied, setIsCopied] = useState(false);
+    const [isAccommodationVisible, setIsAccommodationVisible] = useState(false);
 
     const handleShare = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent card selection when clicking share button
+        e.stopPropagation(); 
 
         const shareText = `Ruta de viaje por Teruel: ${route.summary}. Duración: ${route.totalDuration}, Precio: ${route.totalPrice.toFixed(2)}€.`;
         const shareData = {
@@ -232,16 +291,14 @@ export const RouteCard: React.FC<RouteCardProps> = ({ route, isSelected, onSelec
         <div 
             onClick={() => onSelect(route)}
             className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 cursor-pointer ${isSelected ? 'shadow-2xl ring-2 ring-teal-500' : 'hover:shadow-xl'}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Seleccionar ruta: ${route.summary}`}
+            onKeyPress={(e) => e.key === 'Enter' && onSelect(route)}
         >
-            <div className={`p-4 border-b border-gray-200 transition-colors ${isSelected ? 'bg-teal-50' : 'bg-gray-50'}`}>
+            <div className={`p-4 border-b border-gray-200 transition-colors ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
                 <div className="flex justify-between items-start gap-3">
-                    <div className="flex-grow">
-                        <h3 className="font-bold text-lg text-gray-800">{route.summary}</h3>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mt-1">
-                            <span><i className="fa-regular fa-clock mr-1.5" aria-hidden="true"></i> {route.totalDuration}</span>
-                            <span className="font-semibold text-base text-teal-700"><i className="fa-solid fa-euro-sign mr-1" aria-hidden="true"></i> {route.totalPrice.toFixed(2)}</span>
-                        </div>
-                    </div>
+                    <h3 className="font-bold text-lg text-gray-800 flex-grow">{route.summary}</h3>
                     <div className="flex-shrink-0 flex items-center gap-2">
                         <button
                             onClick={handleToggleSubscription}
@@ -270,23 +327,53 @@ export const RouteCard: React.FC<RouteCardProps> = ({ route, isSelected, onSelec
                         </button>
                     </div>
                 </div>
-                 {route.notes && <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-md mt-3 italic"><i className="fa-solid fa-circle-info mr-2" aria-hidden="true"></i>{route.notes}</p>}
+                 {route.notes && <p className="text-xs text-amber-800 bg-amber-100 p-2 rounded-md mt-3 italic"><i className="fa-solid fa-circle-info mr-2" aria-hidden="true"></i>{route.notes}</p>}
+                
+                <div className="mt-4 flex justify-between items-center">
+                    <TransportStepsSummary steps={route.steps} />
+                    <div className="flex items-center gap-x-4 text-sm text-gray-600">
+                        <span title="Duración total"><i className="fa-regular fa-clock mr-1.5" aria-hidden="true"></i> {route.totalDuration}</span>
+                        <span className="font-semibold text-base text-teal-700" title="Precio total estimado"><i className="fa-solid fa-euro-sign mr-1" aria-hidden="true"></i> {route.totalPrice.toFixed(2)}</span>
+                    </div>
+                </div>
             </div>
             
             {hasAccommodation && (
-                <AccommodationDetails 
-                    accommodations={route.accommodationSuggestions!} 
-                    destination={route.steps[route.steps.length - 1].destination}
-                />
+                <div className="border-t border-gray-200">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsAccommodationVisible(prev => !prev);
+                        }}
+                        className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 transition-colors flex justify-between items-center"
+                        aria-expanded={isAccommodationVisible}
+                        aria-controls={`accommodation-details-${route.summary.replace(/\s/g, '-')}`}
+                    >
+                        <span className="font-semibold text-blue-800 flex items-center text-sm">
+                            <i className="fa-solid fa-bed mr-2.5" aria-hidden="true"></i>
+                            Alojamiento Sugerido en {route.steps[route.steps.length - 1].destination}
+                        </span>
+                        <i className={`fa-solid fa-chevron-down text-blue-600 transition-transform ${isAccommodationVisible ? 'rotate-180' : ''}`} aria-hidden="true"></i>
+                    </button>
+                    {isAccommodationVisible && (
+                        <div id={`accommodation-details-${route.summary.replace(/\s/g, '-')}`}>
+                            <AccommodationDetails 
+                                accommodations={route.accommodationSuggestions!} 
+                            />
+                        </div>
+                    )}
+                </div>
             )}
 
-            <div className="p-4">
-                <div className="flow-root">
-                     {route.steps.map((step, index) => (
-                        <StepDetails key={index} step={step} />
-                    ))}
+            {isSelected && (
+                 <div className="p-4 bg-gray-50/50">
+                    <div className="flow-root">
+                         {route.steps.map((step, index) => (
+                            <StepDetails key={index} step={step} />
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

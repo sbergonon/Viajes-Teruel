@@ -1,11 +1,15 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
-// Fix: __dirname is not available in ES modules. This is the workaround.
+// Fix: Import `fileURLToPath` to resolve `__dirname` in ES modules.
 import { fileURLToPath } from 'url';
 import { planTripHandler } from './planTrip';
 import { getTripIdeasHandler } from './getTripIdeas';
 import { checkTripUpdatesHandler } from './checkTripUpdates';
+
+// Fix: Define `__dirname` for ES module scope.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -53,9 +57,8 @@ app.post('/api/checkTripUpdates', async (req: Request, res: Response) => {
 });
 
 // Define la ruta a la raíz del proyecto para servir archivos estáticos
-// Fix: __dirname is not available in ES modules. This is the workaround.
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// __dirname is a global variable in CommonJS that points to the directory of the current module.
+// The compiled file is in `dist/api/`, so we go up two levels to find the project root.
 const projectRoot = path.join(__dirname, '..', '..');
 
 // Sirve los ficheros estáticos del frontend desde la raíz del proyecto
