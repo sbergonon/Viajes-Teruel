@@ -1,5 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
+// Fix: __dirname is not available in ES modules. This is the workaround.
+import { fileURLToPath } from 'url';
 import { planTripHandler } from './planTrip';
 import { getTripIdeasHandler } from './getTripIdeas';
 import { checkTripUpdatesHandler } from './checkTripUpdates';
@@ -49,13 +52,19 @@ app.post('/api/checkTripUpdates', async (req: Request, res: Response) => {
     }
 });
 
-// Sirve los ficheros estáticos del frontend desde la raíz
-app.use(express.static('./'));
+// Define la ruta a la raíz del proyecto para servir archivos estáticos
+// Fix: __dirname is not available in ES modules. This is the workaround.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.join(__dirname, '..', '..');
 
-// Para cualquier otra ruta, sirve el index.html para soportar SPA routing si es necesario
+// Sirve los ficheros estáticos del frontend desde la raíz del proyecto
+app.use(express.static(projectRoot));
+
+// Para cualquier otra ruta que no sea de la API, sirve el index.html
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile('index.html', { root: './' });
+    res.sendFile('index.html', { root: projectRoot });
   }
 });
 

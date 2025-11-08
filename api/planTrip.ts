@@ -152,7 +152,7 @@ export const planTripHandler = async (body: any) => {
     const systemInstruction = "Eres un experto planificador de viajes especializado en el transporte público de la provincia de Teruel, España. Tu conocimiento abarca horarios de autobuses (incluyendo servicios a demanda y días específicos de operación como laborables, sábados o festivos), líneas de tren, y contactos de taxis locales en pueblos pequeños. Eres capaz de generar rutas lógicas, encontrar coordenadas precisas y proporcionar información práctica y fiable. Siempre devuelves la información en el formato JSON especificado.";
 
     const geminiPromise = ai.models.generateContent({
-        model: "gemini-25-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
             systemInstruction,
