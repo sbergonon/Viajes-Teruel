@@ -16,10 +16,11 @@ app.post('/api/planTrip', async (req: Request, res: Response) => {
         res.json(result);
     } catch (error) {
         console.error("Error in /api/planTrip:", error);
-        if (error.message.includes('timed out')) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        if (errorMessage.includes('timed out')) {
             return res.status(504).json({ error: "La petición ha tardado demasiado en responder." });
         }
-        res.status(500).json({ error: error.message || 'Failed to generate trip plan from AI.' });
+        res.status(500).json({ error: errorMessage || 'Failed to generate trip plan from AI.' });
     }
 });
 
@@ -29,10 +30,11 @@ app.post('/api/getTripIdeas', async (req: Request, res: Response) => {
         res.json(result);
     } catch (error) {
         console.error("Error in /api/getTripIdeas:", error);
-        if (error.message.includes('timed out')) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        if (errorMessage.includes('timed out')) {
             return res.status(504).json({ error: "La petición de sugerencias ha tardado demasiado." });
         }
-        res.status(500).json({ error: error.message || 'No se pudieron generar las ideas de viaje.' });
+        res.status(500).json({ error: errorMessage || 'No se pudieron generar las ideas de viaje.' });
     }
 });
 
@@ -42,7 +44,8 @@ app.post('/api/checkTripUpdates', async (req: Request, res: Response) => {
         res.json(result);
     } catch (error) {
         console.error("Error in /api/checkTripUpdates:", error);
-        res.status(500).json({ error: error.message || 'Failed to generate update from AI.' });
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        res.status(500).json({ error: errorMessage || 'Failed to generate update from AI.' });
     }
 });
 

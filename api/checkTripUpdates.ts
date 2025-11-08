@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
@@ -57,6 +57,9 @@ export const checkTripUpdatesHandler = async (body: any) => {
         },
     });
 
-    const jsonText = response.text.trim();
-    return JSON.parse(jsonText);
+    const jsonText = response.text;
+    if (!jsonText) {
+        throw new Error("Received empty or invalid response from AI.");
+    }
+    return JSON.parse(jsonText.trim());
 };
