@@ -152,7 +152,7 @@ export const planTripHandler = async (body: any) => {
     const systemInstruction = "Eres un experto planificador de viajes especializado en el transporte público de la provincia de Teruel, España. Tu conocimiento abarca horarios de autobuses (incluyendo servicios a demanda y días específicos de operación como laborables, sábados o festivos), líneas de tren, y contactos de taxis locales en pueblos pequeños. Eres capaz de generar rutas lógicas, encontrar coordenadas precisas y proporcionar información práctica y fiable. Siempre devuelves la información en el formato JSON especificado.";
 
     const geminiPromise = ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-25-flash",
         contents: prompt,
         config: {
             systemInstruction,
@@ -166,11 +166,15 @@ export const planTripHandler = async (body: any) => {
         setTimeout(() => reject(new Error('Function timed out')), FUNCTION_TIMEOUT)
     );
 
-    const response = await Promise.race([geminiPromise, timeoutPromise]);
+    const response: unknown = await Promise.race([geminiPromise, timeoutPromise]);
 
-    const jsonText = response.text;
+    if (typeof response !== 'object' || response === null || !('text' in response) || typeof (response as { text: string }).text !== 'string') {
+        throw new Error("Invalid response structure from AI.");
+    }
+
+    const jsonText = (response as { text: string }).text;
     if (!jsonText) {
-        throw new Error("Received empty or invalid response from AI.");
+        throw new Error("Received empty response from AI.");
     }
     return JSON.parse(jsonText.trim());
 };

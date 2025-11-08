@@ -63,11 +63,15 @@ export const getTripIdeasHandler = async () => {
         setTimeout(() => reject(new Error('Function timed out')), FUNCTION_TIMEOUT)
     );
 
-    const response = await Promise.race([geminiPromise, timeoutPromise]);
+    const response: unknown = await Promise.race([geminiPromise, timeoutPromise]);
+    
+    if (typeof response !== 'object' || response === null || !('text' in response) || typeof (response as { text: string }).text !== 'string') {
+        throw new Error("Invalid response structure from AI.");
+    }
 
-    const jsonText = response.text;
+    const jsonText = (response as { text: string }).text;
     if (!jsonText) {
-        throw new Error("Received empty or invalid response from AI.");
+        throw new Error("Received empty response from AI.");
     }
     return JSON.parse(jsonText.trim());
 };
