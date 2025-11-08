@@ -1,15 +1,10 @@
-import express, { Request, Response } from 'express';
+// FIX: Alias express Request and Response to avoid type conflicts with global types.
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import cors from 'cors';
 import path from 'path';
-// Fix: Import `fileURLToPath` to resolve `__dirname` in ES modules.
-import { fileURLToPath } from 'url';
 import { planTripHandler } from './planTrip';
 import { getTripIdeasHandler } from './getTripIdeas';
 import { checkTripUpdatesHandler } from './checkTripUpdates';
-
-// Fix: Define `__dirname` for ES module scope.
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -17,11 +12,11 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-app.post('/api/planTrip', async (req: Request, res: Response) => {
+app.post('/api/planTrip', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await planTripHandler(req.body);
         res.json(result);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in /api/planTrip:", error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
         if (errorMessage.includes('timed out')) {
@@ -31,11 +26,11 @@ app.post('/api/planTrip', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/getTripIdeas', async (req: Request, res: Response) => {
+app.post('/api/getTripIdeas', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await getTripIdeasHandler();
         res.json(result);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in /api/getTripIdeas:", error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
         if (errorMessage.includes('timed out')) {
@@ -45,27 +40,26 @@ app.post('/api/getTripIdeas', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/checkTripUpdates', async (req: Request, res: Response) => {
+app.post('/api/checkTripUpdates', async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const result = await checkTripUpdatesHandler(req.body);
         res.json(result);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in /api/checkTripUpdates:", error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
         res.status(500).json({ error: errorMessage || 'Failed to generate update from AI.' });
     }
 });
 
-// Define la ruta a la raíz del proyecto para servir archivos estáticos
-// __dirname is a global variable in CommonJS that points to the directory of the current module.
-// The compiled file is in `dist/api/`, so we go up two levels to find the project root.
+// __dirname es una variable global en CommonJS que apunta al directorio del módulo actual.
+// El fichero compilado está en `dist/api/`, por lo que subimos dos niveles para encontrar la raíz del proyecto.
 const projectRoot = path.join(__dirname, '..', '..');
 
 // Sirve los ficheros estáticos del frontend desde la raíz del proyecto
 app.use(express.static(projectRoot));
 
 // Para cualquier otra ruta que no sea de la API, sirve el index.html
-app.get('*', (req, res) => {
+app.get('*', (req: ExpressRequest, res: ExpressResponse) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile('index.html', { root: projectRoot });
   }

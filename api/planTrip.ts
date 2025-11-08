@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -115,7 +114,7 @@ export const planTripHandler = async (body: any) => {
         throw new Error('Missing required fields');
     }
     
-    const isTaxiOnlySearch = origin.trim().toLowerCase() === destination.trim().toLowerCase() || origin === 'Mi ubicación actual' && isTaxiOnDemand;
+    const isTaxiOnlySearch = origin.trim().toLowerCase() === destination.trim().toLowerCase() || (origin === 'Mi ubicación actual' && isTaxiOnDemand);
 
     const urgentInstructions = isUrgent
         ? `¡VIAJE URGENTE! El usuario necesita viajar AHORA MISMO, en el momento de la consulta. Prioriza las opciones de transporte con disponibilidad inmediata. Esto significa:

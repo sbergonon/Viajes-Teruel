@@ -1,4 +1,3 @@
-
 import { RecentSearch } from '../types';
 
 const RECENT_SEARCHES_KEY = 'teruelTripPlanner_recentSearches';
